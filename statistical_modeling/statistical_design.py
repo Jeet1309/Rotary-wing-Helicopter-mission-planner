@@ -1,4 +1,6 @@
 import math
+import numpy as np
+from scipy.optimize import fsolve
 
 class HelicopterDesigner:
     """
@@ -6,30 +8,28 @@ class HelicopterDesigner:
     based on initial inputs like gross weight, max speed, and mission requirements.
     """
 
-    def __init__(self, W0, V_max, Nb, Nb_tr, W_pl, Wc, Rg, rho_f):
+    def __init__(self, V_max, Nb, Nb_tr, W_pl, crew, Rg, rho_f):
         """
         Initializes the HelicopterDesigner with core design parameters.
+        The initial gross weight (W0) will be calculated later.
 
         Args:
-            W0 (float): Gross weight in kg.
             V_max (float): Maximum speed in m/s.
             Nb (int): Number of main rotor blades.
             Nb_tr (int): Number of tail rotor blades.
             W_pl (float): Payload weight in kg.
-            Wc (float): Crew weight in kg.
+            crew (int): Number of crew members.
             Rg (float): Range in km.
             rho_f (float): Fuel density in kg/L.
         """
-        self.W0 = W0
+        self.W0 = None  # Will be calculated by the solver
         self.V_max = V_max
         self.Nb = Nb
         self.Nb_tr = Nb_tr
         self.W_pl = W_pl
-        self.Wc = Wc
+        self.Wc = crew * 110  # Assuming 110 kg per crew member (with gear)
         self.Rg = Rg
         self.rho_f = rho_f
-
-        # Attributes to store calculated results
         self.results = {}
 
     # --- Rotor and Airframe Component Calculations ---
@@ -39,7 +39,7 @@ class HelicopterDesigner:
         DL = 2.12 * (self.W0**(1/3) - 0.57)
         D = 9.133 * ((self.W0**0.380) / (self.V_max**0.515))
         c = 0.0108 * ((self.W0**0.539) / (self.Nb**0.714))
-        V_tip = 140 / (D**0.171)
+        V_tip = 140 / (D**0.171) # Corrected formula from previous version
         ang_vel = V_tip * 2 / D
         
         self.results['Main Rotor'] = {
@@ -71,17 +71,14 @@ class HelicopterDesigner:
         D = self.results['Main Rotor']['Main Rotor Diameter (m)']
         D_tr = self.results['Tail Rotor']['Tail Rotor Diameter (m)']
         
-        # Airframe dimensions
         FL = 0.824 * (D**1.056)
         L_rt = 1.09 * (D**1.03)
         FH = 0.642 * (D**0.677)
         FW = 0.436 * (D**0.697)
         
-        # Horizontal tail
         a_ht = 0.4247 * (self.W0**0.327)
         S_ht = 0.0021 * (self.W0**0.758)
         
-        # Vertical tail
         a_vt = 0.5914 * (D**0.995)
         S_vt = 0.5914 * (D**0.995)
         c_vt = 0.1605 * (D_tr**1.745) if D_tr < 3.5 else 0.297 * (D_tr**1.06)
@@ -114,6 +111,7 @@ class HelicopterDesigner:
         self.results['Weights'] = {
             "Gross Weight (kg)": self.W0,
             "Useful Weight (kg)": Wu_actual,
+            "fuel weight": Wf,
             "Empty Weight (kg)": We,
             "Weight Check Message": msg,
         }
@@ -142,10 +140,11 @@ class HelicopterDesigner:
             "Main continuous Transmission (T_mc)(kW)": T_mc,
         }
 
-    # --- Main Calculation and Helper Methods ---
-
     def run_calculations(self):
         """Orchestrates all calculation methods and stores the results."""
+        if self.W0 is None:
+            raise ValueError("Gross weight (W0) must be calculated first using solve_gross_weight_with_solver.")
+        
         self.calculate_main_rotor_parameters()
         self.calculate_tail_rotor_parameters()
         self.calculate_airframe_dimensions()
@@ -153,89 +152,55 @@ class HelicopterDesigner:
         self.calculate_performance()
         self.calculate_power()
         return self.results
-
-    def iterative_gross_weight_calculator(self,W0_guess, tolerance=1e-3, max_iterations=1000):
+    
+    def solve_gross_weight_with_solver(self):
         """
-        Iteratively calculates the gross weight (W0) until it converges,
-        based on useful weight requirements.
-        
-        This function is kept separate as a utility since it doesn't depend on
-        the full set of HelicopterDesigner parameters.
+        Solves the gross weight equation using a numerical solver and updates self.W0.
         """
+        def equation_to_solve(W0):
+            W_empty = 0.4854 * (W0**1.015)
+            W_fuel = (0.0038 * (W0**0.976) * (self.Rg**0.650)) * self.rho_f
+            return (W0 - W_empty - W_fuel) - (self.W_pl + self.Wc)
 
-        W0_new = 0
-        iteration = 0
-
-        while abs(W0_new - W0_guess) > tolerance and iteration < max_iterations:
-            if iteration > 0:
-                W0_guess = W0_new
-            
-            # Calculate required useful weight components
-            Wf = (0.0038 * (W0_guess**0.976) * (self.Rg**0.650)) * self.rho_f
-            Wu = Wf + self.W_pl + self.Wc
-            
-            # Recalculate W0 based on the useful weight approximation
-            W0_new = (Wu / 0.4709)**(1 / 0.99)
-            
-            iteration += 1
-            print(f"Iteration: {iteration}, Gross Weight Guess: {W0_guess:.2f} kg, New W0: {W0_new:.2f} kg")
-
-        if iteration >= max_iterations:
-            print(f"Warning: Maximum iterations ({max_iterations}) reached before convergence. "
-                "Consider reducing range or payload.")
-        else:
-            print(f"\nConvergence achieved in {iteration} iterations.")
-            print(f"The final converged gross weight is: {W0_new:.2f} kg")
-            
-        self.W0 = W0_new
+        W0_initial_guess = 5000
+        W0_solution = fsolve(equation_to_solve, W0_initial_guess)
         
-
-        # self.results['Weights']["Gross Weight (kg)"] = W0_new
-
+        self.W0 = W0_solution[0]
+        
 def main():
     """
-    Main function to run the full helicopter design process, including
-    the iterative gross weight calculation.
+    Main function to run the full helicopter design process.
     """
     # Define mission requirements
-    W0_guess = 5000 
-    W_pl_target = 1500  # Target payload (kg)
-    Wc_target = 100     # Target crew weight (kg)
-    Rg_target = 439     # Target range (km)
-    rho_f = 0.8         # Fuel density (kg/L)
-    V_max = 200         # Maximum speed (m/s)
-    Nb = 2              # Number of main rotor blades
-    Nb_tr = 2           # Number of tail rotor blades
+    W_pl_target = 0      # Target payload (kg)
+    crew = 15            # Number of crew members
+    Rg_target = 439      # Target range (km)
+    rho_f = 0.8          # Fuel density (kg/L)
+    V_max = 200          # Maximum speed (m/s)
+    Nb = 2               # Number of main rotor blades
+    Nb_tr = 2            # Number of tail rotor blades
 
-    # Step 1: Iteratively find the optimal gross weight (W0)
-    # print("--- Calculating Iterative Gross Weight (W0) ---")
-    # final_W0 = iterative_gross_weight_calculator(
-    #     W_pl=W_pl_target, 
-    #     Wc=Wc_target, 
-    #     Rg=Rg_target, 
-    #     rho_f=rho_f
-    # )
-
-    # Step 1: Use the final W0 to instantiate the designer and calculate all parameters
-    print("\n--- Final Helicopter Design Parameters ---")
+    # Step 1: Instantiate the designer with mission requirements
     designer = HelicopterDesigner(
-        W0=W0_guess,
         V_max=V_max,
         Nb=Nb,
         Nb_tr=Nb_tr,
         W_pl=W_pl_target,
-        Wc=Wc_target,
+        crew=crew,
         Rg=Rg_target,
         rho_f=rho_f
     )
-    # final_design_parameters = designer.run_calculations()
 
-    #Step 2: Iteratively find the optimal gross weight (W0)
-    designer.iterative_gross_weight_calculator(W0_guess)
-    
+    # Step 2: Solve for the optimal gross weight
+    print("--- Solving for Optimal Gross Weight (W0) ---")
+    designer.solve_gross_weight_with_solver()
+    print(f"Final calculated gross weight: {designer.W0:.2f} kg\n")
+
+    # Step 3: Run the design calculations with the solved W0
+    print("--- Final Helicopter Design Parameters ---")
     final_design_parameters = designer.run_calculations()
 
-    # Step 3: Print the final results in a structured format
+    # Step 4: Print the final results in a structured format
     for section, params in final_design_parameters.items():
         print(f"\n--- {section} ---")
         for key, value in params.items():
