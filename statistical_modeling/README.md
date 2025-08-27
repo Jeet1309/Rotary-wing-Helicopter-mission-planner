@@ -21,20 +21,19 @@ The program follows a two-step process:
     ```python
     def main():
         # Define mission requirements
-        W0_guess = 5000         # Initial guess for gross weight (kg)
-        W_pl_target = 1500      # Target payload (kg)
-        Wc_target = 100         # Target crew weight (kg)
-        Rg_target = 439         # Target range (km)
-        rho_f = 0.8             # Fuel density (kg/L)
-        V_max = 200             # Maximum speed (m/s)
-        Nb = 2                  # Number of main rotor blades
-        Nb_tr = 2               # Number of tail rotor blades
+       W_pl_target = 0      # Target payload (kg)
+       crew = 15            # Number of crew members
+       Rg_target = 439      # Target range (km)
+       rho_f = 0.8          # Fuel density (kg/L)
+       V_max = 200          # Maximum speed (km/h)
+       Nb = 2               # Number of main rotor blades
+       Nb_tr = 2            # Number of tail rotor blades
     ```
 
 3.  **Run the Program:** Save the file and execute it from your terminal or command prompt using the following command:
 
     ```bash
-    python helicopter_designer.py
+    python statistical_design.py
     ```
 
 ## Output 📊
@@ -45,7 +44,7 @@ The program will print the results directly to the console in a structured forma
 
 ## Code Description
 
-The provided Python script is an object-oriented program designed to perform preliminary helicopter design calculations. The core functionality is encapsulated within the `HelicopterDesigner` class, which acts as a blueprint for a helicopter model. The script also includes a `main` function to demonstrate how to use this class.
+The provided Python script is an object-oriented program designed to perform preliminary calculations for helicopter design. The core functionality is encapsulated within the `HelicopterDesigner` class, which acts as a blueprint for a helicopter model. The script also includes a `main` function to demonstrate how to use this class.
 
 ---
 
@@ -53,9 +52,9 @@ The provided Python script is an object-oriented program designed to perform pre
 
 This class is the central component of the program. It manages all the data and calculations related to a single helicopter design.
 
-* `__init__(self, W0, V_max, Nb, Nb_tr, W_pl, Wc, Rg, rho_f)`: This is the **constructor** of the class. It initializes a new `HelicopterDesigner` object with all the fundamental design inputs. These inputs, such as **gross weight (W0)**, **maximum speed (V_max)**, and **payload weight (W_pl)**, are stored as attributes of the object using `self.`. It also initializes an empty dictionary `self.results` to store all the calculated parameters.
+* `__init__(self, V_max, Nb, Nb_tr, W_pl, crew, Rg, rho_f)`: This is the **constructor** of the class. It initializes a new `HelicopterDesigner` object with all the fundamental design inputs. These inputs, such as  **maximum speed (V_max)**, **payload weight (W_pl)**, and **crew** the number of crew/people,  are stored as attributes of the object using `self.`. It also initializes an empty dictionary `self.results` to store all the calculated parameters.
 
-* `iterative_gross_weight_calculator(self, W0_guess, tolerance, max_iterations)`: This method performs the iterative calculation to find the optimal gross weight. It takes an initial guess for the gross weight (`W0_guess`) and refines it in a loop until the value converges (the change between iterations is smaller than the `tolerance`). The core of this loop is a formula that relates the **useful weight (Wu)**—which includes payload, crew, and fuel—to the gross weight. Once the final weight is found, it updates the object's `self.W0` attribute.
+* `solve_gross_weight_with_solver(self)`: This method performs the iterative calculation to find the optimal gross weight. It takes an initial guess for the gross weight (`W0_guess`) and refines it in a loop until the value converges (the change between iterations is smaller than the `tolerance`). The core of this loop is a formula that relates the **useful weight (Wu)**—which includes payload, crew, and fuel—to the gross weight. Once the final weight is found, it updates the object's `self.W0` attribute.
 
 * `calculate_main_rotor_parameters(self)`, `calculate_tail_rotor_parameters(self)`, `calculate_airframe_dimensions(self)`, `calculate_weights(self)`, `calculate_performance(self)`, `calculate_power(self)`: These methods are responsible for a specific set of calculations. Each method uses the attributes stored in `self.` (like `self.W0` and `self.V_max`) to compute various design parameters. The results of these calculations are then stored in the `self.results` dictionary, which is organized into logical sub-dictionaries (e.g., `'Main Rotor'`, `'Weights'`).
 
