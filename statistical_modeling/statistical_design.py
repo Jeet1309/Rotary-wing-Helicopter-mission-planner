@@ -14,7 +14,7 @@ class HelicopterDesigner:
         The initial gross weight (W0) will be calculated later.
 
         Args:
-            V_max (float): Maximum speed in m/s.
+            V_max (float): Maximum speed in km/hr.
             Nb (int): Number of main rotor blades.
             Nb_tr (int): Number of tail rotor blades.
             W_pl (float): Payload weight in kg.
@@ -39,7 +39,7 @@ class HelicopterDesigner:
         DL = 2.12 * (self.W0**(1/3) - 0.57)
         D = 9.133 * ((self.W0**0.380) / (self.V_max**0.515))
         c = 0.0108 * ((self.W0**0.539) / (self.Nb**0.714))
-        V_tip = 140 / (D**0.171) # Corrected formula from previous version
+        V_tip = 140 * (D**0.171) # Corrected formula from previous version
         ang_vel = V_tip * 2 / D
         
         self.results['Main Rotor'] = {
@@ -54,7 +54,7 @@ class HelicopterDesigner:
         """Calculates tail rotor characteristics."""
         D_tr = 0.0886 * (self.W0**0.393)
         a_mt = 0.5107 * (self.results['Main Rotor']['Main Rotor Diameter (m)']**1.061)
-        V_tip_tail = 182 / (D_tr**0.172)
+        V_tip_tail = 182 * (D_tr**0.172)
         ang_vel_tail = V_tip_tail * 2 / D_tr
         c_tr = 0.0058 * (self.W0**0.506) / (self.Nb_tr**0.720)
 
@@ -176,7 +176,7 @@ def main():
     crew = 15            # Number of crew members
     Rg_target = 439      # Target range (km)
     rho_f = 0.8          # Fuel density (kg/L)
-    V_max = 200          # Maximum speed (m/s)
+    V_max = 200          # Maximum speed (km/hr)
     Nb = 2               # Number of main rotor blades
     Nb_tr = 2            # Number of tail rotor blades
 
@@ -210,4 +210,5 @@ def main():
                 print(f"{key}: {value}")
 
 if __name__ == '__main__':
+
     main()
