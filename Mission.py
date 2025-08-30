@@ -322,11 +322,11 @@ class Mission_planner:
                 return {"status": "STALL_PREDICTED", "time": t, "log": log}
 
         # timeout safety
-            print("Warning: climb_pitch_ramp reached max_time without reaching target")
-            return {"status": "TIMEOUT", "time": t, "log": log}
+            # print("Warning: climb_pitch_ramp reached max_time without reaching target")
+            # return {"status": "TIMEOUT", "time": t, "log": log}
 
 
-    def _hover(self, hover_altitude: float, duration_s: float, dt: float = 1.0, log=None,W0=0):
+    def _hover(self, hover_altitude: float, duration_s: float, dt: float = 1.0, log=None):
         """
         Hover at hover_altitude for duration_s. Uses _climb_pitch_ramp if altitude differs.
         Added small guards for missing keys and clearer prints.
@@ -361,7 +361,7 @@ class Mission_planner:
     "fuel_kg": cs.get('Wf', 0.0) / g,
     "weight_kg": cs.get('W0', 0.0) / g
 })
-            ## update weigth 
+            ## update weight 
             # fuel_bured = fuel_flow(cs.get('required_power', 0.0),)
             
 
@@ -490,5 +490,6 @@ if __name__ =="__main__":
     planner = Mission_planner(params)
     
     result = planner._hover(0,10000)
+
 
 
