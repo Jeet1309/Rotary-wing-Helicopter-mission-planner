@@ -1,214 +1,101 @@
-### Guide to Using the Helicopter Mission Planner Code
-
-This guide provides a detailed walkthrough on how to use your helicopter mission planning code, from setting up a new helicopter design to simulating a mission and analyzing the results.
-
-The code is structured into several interconnected modules:
-
-  * `statistical_design.py`: Defines the helicopter's physical parameters (weight, dimensions) based on high-level mission requirements.
-  * `calculating_state.py`: A `Helicopterstate_simulator` class that models the helicopter's performance (thrust, power, fuel burn) at a given point in time.
-  * `Mission.py`: The `Mission_planner` class that orchestrates the entire mission simulation, linking the design to the simulator.
-  * `main.py`: The main entry point to set up and run a mission.
-  * `helper.py`: Contains low-level helper functions for physics, conversions, and geometric calculations.
-  * `Heli_engine_data - Sheet1.csv`: A data file for engine performance.
+Of course, here is the user manual.
 
 -----
 
-### Step 1: Helicopter Design Configuration
+## Simple User Manual
 
-The first step is to define the high-level mission requirements for the helicopter. This is done in the `main.py` file within the `params` dictionary. The `Mission_planner` uses these inputs to call the `HelicopterDesigner` and create a plausible helicopter design.
+### 📖 1. Introduction
 
-**`main.py`**
-
-```python
-params = {
-    # Initial estimate of take-off weight (kg)
-    "W0_guess": 4000, 
-    # Target payload weight (kg)
-    "W_pl_target": 0,
-    # Number of crew/passengers
-    "crew": 15,
-    # Target range (km)
-    "Rg_target": 439, 
-    # Maximum forward speed (m/s)
-    "V_max": 200,
-    # Number of main rotor blades
-    "Nb": 2,
-    # Number of tail rotor blades
-    "Nb_tr": 2
-}
-```
-
-You can modify these values to design different types of helicopters. For instance, to design a heavy-lift helicopter, you would increase `W0_guess` and `W_pl_target`.
+Welcome to the Helicopter Design and Mission Simulator\! This guide will walk you through how to use the tool to design a helicopter and simulate its flight. The program will first ask you for your design goals and then ask for a sequence of flight maneuvers (a "mission").
 
 -----
 
-### Step 2: Defining a Mission Profile
+### ⚙️ 2. Before You Start: Setup
 
-Once the helicopter is designed, the `Mission_planner` is ready to simulate a flight. The mission is defined as a dictionary passed to the `run_mission` method. The planner executes each phase of the mission in the order you define them.
+To use this tool, you need a few things set up on your computer.
 
-Here are the supported mission phases:
-
-  * **`climb`**: Simulates a vertical climb from the current altitude.
-  * **`hover`**: Simulates hovering at a fixed altitude for a specified duration.
-  * **`descent`**: (Not implemented in the provided code, but you could add this).
-  * **`cruise`**: (Not implemented in the provided code, but you could add this).
-
-#### A. The `climb` Phase
-
-The `climb` phase can be configured in two ways:
-
-1.  **Time-based Climb (`time` parameter):** The simulator will climb at a constant vertical velocity to reach the `target_altitude` in a specific `time`. This is useful for planning a mission with a fixed schedule.
-2.  **Pitch-based Climb (`pitch_ramp_rate` parameter):** The simulator will increase the rotor's collective pitch at a constant rate, and the helicopter will climb as fast as the increasing thrust allows. The simulation will stop when the `target_altitude` is reached or if the blades stall or exceed engine power limits. This is more realistic for performance analysis.
-
-**Example Mission Profiles:**
-
-```python
-# Mission Profile 1: Climb to 400m in 20 seconds
-mission_1 = {
-    "climb": {
-        "target_altitude": 400,
-        "time": 20
-    }
-}
-
-# Mission Profile 2: Climb to 500m by ramping up pitch at 0.5 deg/s
-mission_2 = {
-    "climb": {
-        "target_altitude": 500,
-        "pitch_ramp_rate": 0.5
-    }
-}
-```
-
-#### B. The `hover` Phase
-
-The `hover` phase requires a target `altitude` and a `duration` in seconds. The simulator will automatically climb to the specified altitude first (using the pitch-based climb method) and then hold that altitude for the duration.
-
-**Example Mission Profile:**
-
-```python
-# Mission Profile 3: Climb to 25m, then hover for 100 seconds
-mission_3 = {
-    "hover": {
-        "altitude": 25,
-        "duration": 100
-    }
-}
-```
-
-To run a mission, you just need to pass the mission dictionary to the `run_mission` method in `main.py`.
-
-```python
-# In main.py:
-planner = Mission_planner(params)
-result = planner.run_mission(mission_profile=mission_3)
-```
+1.  **Install Python:** If you don't have Python, please install it from [python.org](https://python.org).
+2.  **Install Libraries:** You need three libraries. Open your terminal or command prompt and run this command:
+    ```bash
+    pip install numpy pandas matplotlib
+    ```
+3.  **Organize Files:** Place all the provided files (`.py` and `.csv`) into a single folder on your computer.
 
 -----
 
-### Step 3: Running the Simulation and Analyzing Results
+### 🚀 3. Running a Simulation: Step-by-Step Guide
 
-When you run `main.py`, the simulation will begin.
+Follow these steps to run a new simulation.
 
-1.  **Real-Time Log:** The terminal will print a detailed, step-by-step log of the simulation. This includes the current time, altitude, fuel consumption, and power output at each `dt` time step. This log gives you a real-time view of the helicopter's performance.
+#### Step 1: Launch the Program
 
-2.  **Visualization:** After the simulation is complete, the `visualize_mission` method generates several plots to help you analyze the mission performance.
-
-      * **Altitude vs. Time:** Shows the helicopter's flight path.
-      * **Pitch vs. Time:** Tracks the collective pitch angle, which corresponds to the pilot's control input.
-      * **Power vs. Time:** Illustrates the engine power required at each moment. This is crucial for checking if the helicopter's engine is powerful enough for the mission.
-      * **Fuel vs. Time:** Shows the rate of fuel consumption over the mission duration. This is used to verify if the helicopter has enough fuel to complete the mission.
-
-By examining these plots, you can quickly assess if the helicopter design can successfully complete the mission profile and identify any potential issues like a lack of power or a high rate of fuel burn.
-
------
-
-### README.md
-
-#### Helicopter Mission Planner and Performance Analysis
-
-This repository contains a Python-based tool for the preliminary design, mission planning, and performance analysis of a single-rotor helicopter. The code is structured to allow for easy modification of design parameters and mission profiles.
-
-#### 📁 File Structure
-
-```
-├── main.py
-├── Mission.py
-├── calculating_state.py
-├── statistical_design.py
-├── helper.py
-└── Heli_engine_data - Sheet1.csv
-```
-
-#### 🛠️ Prerequisites
-
-To run this code, you need a Python environment with the following libraries installed.
-
-```bash
-pip install numpy matplotlib
-```
-
-#### ▶️ How to Run
-
-1.  Open the `main.py` file.
-
-2.  Modify the `params` dictionary to define your desired helicopter design and mission requirements.
-
-3.  Modify the `mission_profile` dictionary to define the mission segments (climb, hover, etc.).
-
-4.  Run the script from your terminal:
-
+  * Open a terminal (on Mac/Linux) or Command Prompt (on Windows).
+  * Navigate to the folder where you saved the files. For example:
+    ```bash
+    cd C:\Users\YourName\Documents\HeliSim
+    ```
+  * Run the main script with the following command:
     ```bash
     python main.py
     ```
 
-#### ⚙️ Configuration
+#### Step 2: Enter Helicopter Design Parameters
 
-The core configuration is in the `main.py` file.
+The program will first ask you to define the helicopter you want to build. It will prompt you for the following information. Just type a number and press Enter.
 
-**Helicopter Design Parameters (`params` dictionary):**
+  * **Initial Gross Weight (kg, e.g., 4000):** A starting guess for the helicopter's total weight. The program will refine this automatically.
+  * **Payload Weight (kg, e.g., 0):** The weight of the cargo you want to carry.
+  * **Max Speed (m/s, e.g., 200):** The desired top speed.
+  * **Number of crew (e.g., 15):** How many people are in the crew.
+  * **Range (km, e.g., 439):** How far the helicopter should be able to fly.
+  * **Number of main rotor blades (e.g., 4):**
+  * **Number of tail rotor blades (e.g., 2):**
+  * **Main rotor taper ratio (e.g., 0.8):** How much the blades narrow from root to tip. `1.0` means no taper.
+  * **Main rotor twist at root (deg, e.g., 5):** The angle of the blade at the root.
+  * **Main rotor twist at tip (deg, e.g., 0):** The angle of the blade at the tip.
 
-  - `W0_guess`: Initial guess for the gross weight in kg.
-  - `W_pl_target`: Target payload weight in kg.
-  - `crew`: Number of crew/passengers.
-  - `Rg_target`: Target range in km.
-  - `V_max`: Maximum forward speed in m/s.
-  - `Nb`: Number of main rotor blades.
+#### Step 3: Define the Mission Profile
 
-**Mission Profile (`mission_profile` dictionary):**
+Next, you will define the flight plan step-by-step. For each step, you'll enter a type and its parameters.
 
-The `run_mission` function accepts a dictionary defining a sequence of mission phases. The available phases are:
+**Mission Step Types:**
 
-  - **`climb`**:
+  * `hover`: Keep the helicopter at a specific altitude for a set time.
+      * **hover altitude (m):** The altitude to hover at. You can leave this blank to hover at the current altitude.
+      * **hover duration (s):** How long to hover in seconds.
+  * `climb_time`: Climb to a target altitude over a fixed amount of time.
+      * **target altitude (m):** The altitude you want to reach.
+      * **climb duration (s):** How many seconds the climb should take.
 
-      - `target_altitude` (meters)
-      - `time` (seconds): For a constant-rate climb.
-      - `pitch_ramp_rate` (deg/s): For a pitch-based climb.
+When you have finished adding all the steps for your mission, type **`done`** and press Enter.
 
-  - **`hover`**:
+#### Example Mission Input:
 
-      - `altitude` (meters)
-      - `duration` (seconds)
+1.  **Type:** `hover`
+2.  **Altitude:** `0`
+3.  **Duration:** `60`
+    *(This makes the helicopter take off and hover at ground level for 1 minute)*
+4.  **Type:** `climb_time`
+5.  **Target Altitude:** `100`
+6.  **Climb Duration:** `100`
+    *(This makes the helicopter climb to 100 meters over 100 seconds)*
+7.  **Type:** `hover`
+8.  **Altitude:** (leave blank)
+9.  **Duration:** `300`
+    *(This makes it hover at 100 meters for 5 minutes)*
+10. **Type:** `done`
 
-**Example Mission:**
+-----
 
-```python
-# Climb to 1000m, then hover at 1000m for 300 seconds
-mission_profile = {
-    "climb": {
-        "target_altitude": 1000,
-        "pitch_ramp_rate": 0.5
-    },
-    "hover": {
-        "altitude": 1000,
-        "duration": 300
-    }
-}
-```
+### 📊 4. Understanding the Output
 
-#### 📊 Output and Visualization
+Once you enter "done", the simulation will run. Here's what you'll get:
 
-Upon running the script, the program will:
-
-1.  **Print a real-time log** to the console, showing the helicopter's state at each time step.
-2.  **Generate a series of plots** displaying the mission profile, including altitude, pitch, power, and fuel consumption over time. These plots are essential for a detailed performance analysis.
+1.  **Console Messages:** The terminal will show the final design parameters of your helicopter and print live updates as the mission progresses.
+2.  **Plots:** Several windows will pop up showing graphs of the mission:
+      * Altitude vs. Time
+      * Power vs. Time
+      * Fuel vs. Time
+      * ...and more.
+        These plots are also automatically saved as image files (e.g., `Altitude.svg`) in the same folder.
+3.  **CSV Log File:** A file named `mission.csv` will be created. This is a spreadsheet file that contains the detailed data for every second of the flight, which you can open in Excel or another program for analysis.
