@@ -1,4 +1,4 @@
-Of course, here is the user manual.
+
 
 -----
 
