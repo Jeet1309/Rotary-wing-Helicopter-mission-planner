@@ -64,7 +64,8 @@ def lamda_prandtl(Climb_velocity, blades, r_array, Blade_radius, sigma, lift_slo
             F = np.maximum(F, 1e-6)
 
             lam_new = np.sqrt(((sigma*lift_slope)/(16*F))**2 + ((sigma*lift_slope*Theta_rad*r_array)/(8*F*Blade_radius)) ) - ((sigma*lift_slope)/(16*F))
-
+            # lamda_tiploss
+            # print(np.all(np.abs(lam_new - lam) < tol))
             if np.all(np.abs(lam_new - lam) < tol):
                 lamda_tiploss = lam_new
                 break
@@ -86,8 +87,10 @@ def lamda_prandtl(Climb_velocity, blades, r_array, Blade_radius, sigma, lift_slo
                 break
             
             lam = lam_new
-
-    Lamda = lamda_tiploss*1.062 # K factor accouting for other various losses 
+    try:
+        Lamda = lamda_tiploss*1.062
+    except:
+        Lamda = lam# K factor accouting for other various losses 
 
     induced_vel = (Lamda * rad_s * Blade_radius) - Climb_velocity
 
@@ -115,8 +118,8 @@ def aerod(rad_s, r_array, climb_vel, induced_vel, Theta_rad, lift_slope,Temp):
         C_d = C_d/(np.sqrt(1 - mach_no**2))
     else:
         # clamp or warn
-        C_l = 0.0
-        C_d = 0.0
+        C_l = C_l
+        C_d = C_d
         print("Warning: Mach > 1 region reached, forcing C_l=C_d=0")
 
     return (C_l, C_d, alpha_eff, U_p, U_t, phi)
@@ -151,13 +154,13 @@ def TPQ(rho, U_p, U_t, C_m, C_l, C_d, phi, R, Div, b, r, rad_s):
 # ------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-def plot_results(time_arr, data_arr, y_label, title):
+def plot_results(time_arr, data_arr, y_label,xlabel, title):
     """
     Plots a single result array against time.
     """
     plt.figure()
     plt.plot(time_arr, data_arr, label=y_label)
-    plt.xlabel("Time [s]")
+    plt.xlabel(xlabel)
     plt.ylabel(y_label)
     plt.title(title)
     plt.grid(True)

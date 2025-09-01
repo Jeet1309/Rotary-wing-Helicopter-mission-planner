@@ -1,126 +1,124 @@
-from Mission import Mission_planner,visualize_mission,HelicopterDesigner
-import json
-import datetime
-import csv
 import numpy as np
-from helper import *
-# ------------------------------------------------------------------------------------------------------------------------------------------------
-def required_hover_power(W0, altitude, params):
-    """
-    Computes required hover power at a given weight and altitude.
+import matplotlib.pyplot as plt
+import csv
+from statistical_design import HelicopterDesigner
+from calculating_state import Helicopterstate_simulator
+from helper import isa, deg_to_rad, chord_variation, twist_variation, rad_to_deg, lamda_prandtl, aerod, TPQ, available_engine_power, fuel_flow, degC_to_kel
+from Mission import Mission_planner, visualize_mission
+import math
+import pandas as pd
+import json
+from result_gen import run_all_calculations_and_plots
 
-    Args:
-        W0 (float): Gross weight [kg]
-        altitude (float): Altitude [m]
-        params (dict): rotor/engine parameters
-    
+g = 9.81  # m/s^2
+
+def get_user_input():
+    """
+    Prompts the user for helicopter design parameters and mission profile.
     Returns:
-        dict with thrust, power, stall (bool)
+        tuple: A tuple containing the design parameters and mission profile.
     """
-    g = 9.81
-    thrust_req = W0 * g
+    print("--- Helicopter Design Input ---")
+    W0_guess = float(input("Enter initial Gross Weight (kg, e.g., 4000): "))
+    W_pl_target = float(input("Enter Payload Weight (kg, e.g., 0): "))
+    V_max = float(input("Enter Max Speed (m/s, e.g., 200): "))
+    crew = int(input("Enter number of crew (e.g., 15): "))
+    Rg_target = float(input("Enter Range (km, e.g., 439): "))
+    Nb = int(input("Enter number of main rotor blades (e.g., 4): "))
+    Nb_tr = int(input("Enter number of tail rotor blades (e.g., 2): "))
+    
+    # Inputs for taper and twist
+    taper_ratio = float(input("Enter main rotor taper ratio (e.g., 0.8): "))
+    twist_root = float(input("Enter main rotor twist at root (deg, e.g., 5): "))
+    twist_tip = float(input("Enter main rotor twist at tip (deg, e.g., 0): "))
 
-    # Atmosphere at altitude
-    T, P, rho = isa(altitude)
-
-    # Rotor parameters
-    R = params["R"]            # rotor radius [m]
-    b = params["blades"]       # number of blades
-    c = params["chord"]        # representative chord [m]
-    lift_slope = params["lift_slope"]  # per rad
-    rpm = params["rpm"]
-    rad_s = rpm_to_rad_s(rpm)
-
-    # Discretize blade
-    n_elem = 20
-    r = np.linspace(0.2*R, R, n_elem)
-    dr = R/n_elem
-    chord = np.ones_like(r) * c
-    theta = deg_to_rad(params["theta0_deg"])  # initial guess collective
-
-    # Iterative solve for pitch (Newton solver)
-    def thrust_error(theta_in, h):
-        cl, cd, alpha, U_p, U_t, phi = aerod(rad_s, r, 0.0,  # hover
-                                             lamda_prandtl(0, b, r, R, (b*c)/(pi*R), 
-                                                           lift_slope, 1e-4, theta_in, pi, 0, rad_s),
-                                             theta_in, lift_slope, T-273)
-        Cm = chord
-        Thrust, Power, Torque = TPQ(rho, U_p, U_t, Cm, cl, cd, phi, R, n_elem, b, r, rad_s)
-        return Thrust - thrust_req
-
-    theta_sol, err = newton_solver(thrust_error, theta, altitude)
-
-    # Recompute with final theta
-    cl, cd, alpha, U_p, U_t, phi = aerod(rad_s, r, 0.0,
-                                         lamda_prandtl(0, b, r, R, (b*c)/(pi*R), lift_slope, 1e-4, theta_sol, pi, 0, rad_s),
-                                         theta_sol, lift_slope, T-273)
-    Cm = chord
-    Thrust, Power, Torque = TPQ(rho, U_p, U_t, Cm, cl, cd, phi, R, n_elem, b, r, rad_s)
-
-    stalled = np.any(alpha > deg_to_rad(params["stall_angle_deg"]))
-
-    return {
-        "W0": W0,
-        "thrust": Thrust,
-        "power": Power,
-        "stall": stalled
+    design_params = {
+        "W0_guess": W0_guess,
+        "W_pl_target": W_pl_target,
+        "V_max": V_max,
+        "crew": crew,
+        "Rg_target": Rg_target,
+        "rho_f": 0.8,
+        "Nb": Nb,
+        "Nb_tr": Nb_tr,
+        "taper_ratio": taper_ratio,
+        "twist_root": twist_root,
+        "twist_tip": twist_tip
     }
-
-# ------------------------------------------------------------------------------------------------------------------------------------------------
-def get_mtow_stall_2000m(W0_range, params, altitude=2000):
-    """
-    Returns MTOW limited by stall at 2000m.
-    """
-    feasible = []
-    for W0 in W0_range:
-        res = required_hover_power(W0, altitude, params)
-        if not res["stall"]:
-            feasible.append(W0)
-        else:
+    
+    print("\n--- Mission Profile Input ---")
+    mission_profile = []
+    while True:
+        step_type = input("Enter mission step type (climb_pitch, climb_time, hover, or done to finish): ").strip().lower()
+        if step_type == 'done':
             break
-    return max(feasible) if feasible else None
-
-# ------------------------------------------------------------------------------------------------------------------------------------------------
-def get_mtow_power_2000m(W0_range, params, altitude=2000):
-    """
-    Returns MTOW limited by available power at 2000m.
-    """
-    feasible = []
-    for W0 in W0_range:
-        res = required_hover_power(W0, altitude, params)
-        Pavail = available_engine_power(params["engine_power_sl"], altitude)
-        if res["power"] <= Pavail and not res["stall"]:
-            feasible.append(W0)
+        
+        if step_type == 'climb_pitch':
+            target_altitude = float(input("   Enter target altitude (m): "))
+            pitch_ramp = float(input("   Enter pitch ramp rate (deg/s, e.g., 0.5): "))
+            mission_profile.append({
+                "type": "climb_pitch",
+                "target_altitude": target_altitude,
+                "pitch_ramp_rate_deg_per_s": pitch_ramp
+            })
+        elif step_type == 'climb_time':
+            target_altitude = float(input("   Enter target altitude (m): "))
+            climb_time = float(input("   Enter climb duration (s): "))
+            mission_profile.append({
+                "type": "climb_time",
+                "target_altitude": target_altitude,
+                "climb_time": climb_time
+            })
+        elif step_type == 'hover':
+            altitude_input = input("   Enter hover altitude (m, leave blank for current altitude): ")
+            # Corrected logic to handle empty input string
+            altitude = float(altitude_input) if altitude_input.strip() else None
+            duration = float(input("   Enter hover duration (s): "))
+            mission_profile.append({
+                "type": "hover",
+                "altitude": altitude,
+                "duration": duration
+            })
         else:
-            break
-    return max(feasible) if feasible else None
+            print("Invalid step type. Please try again.")
 
-    
-    
-    
-if __name__ == "__main__":
-#     mission = [
-#     {"type": "climb_time", "target_altitude": 100, "climb_time": 100},
+    return design_params, mission_profile
 
-#     {"type": "hover",  "duration": 100},
-#     {"type": "hover", "altitude": 200, "duration": 100},
-# ]
-    
-    params = {
-        "W0_guess": 4000,
-        "W_pl_target": 0,
-        "V_max": 200,
-        "crew": 100,
-        "Rg_target": 439,
-        "rho_f": 0.8
-    }
-    planner = Mission_planner(params)
-    
-    log = planner.run_mission(mission_profile=mission,log_file="miss2.csv")
-    
+def main():
+    """
+    Main function to run the complete simulation workflow.
+    """
+    # Get user inputs
+    design_params, mission_profile = get_user_input()
 
-    # Run the test mission
+    if not mission_profile:
+        print("No mission profile defined. Exiting.")
+        return
+
+    # Initialize the mission planner
+    print("\n--- Initializing Simulator and Running Mission ---")
+    planner = Mission_planner(design_params)
     
-    # visualize_mission(log)
     
+    # Run the mission
+    mission_log = planner.run_mission(mission_profile, dt=1.0)
     
+    # Check if a log was generated
+    if not mission_log:
+        print("\nMission failed. No log data was generated.")
+        return
+
+    # Save and visualize plots
+    print("\n--- Mission Complete. Generating Plots ---")
+    
+    # Save a combined plot and individual plots as SVG
+    visualize_mission(mission_log)
+    
+    print("\nPlots have been generated and saved as SVG files.")
+    print("Mission log saved to 'mission.csv'")
+    print("Program finished.")
+    print("running required design plots and calculations")
+    run_all_calculations_and_plots(params=design_params)
+
+if __name__ == '__main__':
+    main()

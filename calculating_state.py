@@ -26,43 +26,78 @@ class Helicopterstate_simulator:
             'vertical_velocity': 0.0,
             'time_step_duration': 0.0
         }
-        # print(self.design_params['Engine Suggestion'])
         self.engine_power_sl = self.design_params['Engine Suggestion']['Power (kw)']
-        self._initialize_arrays()
+        self._initialize_arrays_main_rotor()
+        self._initialize_arrays_tail_rotor() # New call for tail rotor
 
-    def _initialize_arrays(self):
-        """Initializes the radial and blade property arrays."""
+    def _initialize_arrays_main_rotor(self):
+        """Initializes the radial and blade property arrays for the main rotor."""
         p = self.design_params['Main Rotor']
-        self.r_arr = np.linspace(p['Root_cutoff'], p['Blade_radius'], p['Div'])
-        self.chord_array = chord_variation(p['Chord_root'], p['Chord_tip'], p['Blade_radius'], p['Root_cutoff'], self.r_arr)
-        self.theta_array = twist_variation(p['Twist_root'], p['Twist_tip'], p['Blade_radius'], p['Root_cutoff'], self.r_arr)
+        self.r_arr_main = np.linspace(p['Root_cutoff'], p['Blade_radius'], p['Div'])
+        self.chord_array_main = chord_variation(p['Chord_root'], p['Chord_tip'], p['Blade_radius'], p['Root_cutoff'], self.r_arr_main)
+        self.theta_array_main = twist_variation(p['Twist_root'], p['Twist_tip'], p['Blade_radius'], p['Root_cutoff'], self.r_arr_main)
+        self.rad_s_main = p['rad_s']
+        self.blades_main = p['blades']
+        self.radius_main = p['Blade_radius']
+        self.lift_slope_main = p['lift_slope']
+        self.div_main = p['Div']
 
-    def _calculate_blade_properties(self, collective_pitch: float, height_m: float, climb_vel: float) -> tuple:
+    def _initialize_arrays_tail_rotor(self):
+        """Initializes the radial and blade property arrays for the tail rotor."""
+        p = self.design_params['Tail Rotor']
+        self.r_arr_tail = np.linspace(p['Root_cutoff'], p['Blade_radius'], p['Div'])
+        self.chord_array_tail = chord_variation(p['Chord_root'], p['Chord_tip'], p['Blade_radius'], p['Root_cutoff'], self.r_arr_tail)
+        self.theta_array_tail = twist_variation(p['Twist_root'], p['Twist_tip'], p['Blade_radius'], p['Root_cutoff'], self.r_arr_tail)
+        self.rad_s_tail = p['rad_s']
+        self.blades_tail = p['blades']
+        self.radius_tail = p['Blade_radius']
+        self.lift_slope_tail = p['lift_slope']
+        self.div_tail = p['Div']
+
+    def _calculate_blade_properties(self, collective_pitch: float, height_m: float, climb_vel: float, main_rotor: bool = True) -> tuple:
         """
         Calculates blade properties (thrust, power, torque, etc.) for a given state.
         This is a refactored version of the original `calculate_blade_properties`.
         """
-        p = self.design_params['Main Rotor']
-        net_theta_deg = self.theta_array + collective_pitch
+        if main_rotor:
+            r_arr = self.r_arr_main
+            chord_array = self.chord_array_main
+            theta_array = self.theta_array_main
+            rad_s = self.rad_s_main
+            blades = self.blades_main
+            radius = self.radius_main
+            lift_slope = self.lift_slope_main
+            div = self.div_main
+        else:
+            r_arr = self.r_arr_tail
+            chord_array = self.chord_array_tail
+            theta_array = self.theta_array_tail
+            rad_s = self.rad_s_tail
+            blades = self.blades_tail
+            radius = self.radius_tail
+            lift_slope = self.lift_slope_tail
+            div = self.div_tail
+            
+        net_theta_deg = theta_array + collective_pitch
         net_theta_rad = deg_to_rad(net_theta_deg)
-        sigma = (p['blades'] * self.chord_array) / (math.pi * p['Blade_radius'])
+        sigma = (blades * chord_array) / (math.pi * radius)
         tol = 1e-12
-        lamda_c = climb_vel / (p['rad_s'] * p['Blade_radius'])
-        induced_vel = lamda_prandtl(climb_vel, p['blades'], self.r_arr, p['Blade_radius'], sigma, p['lift_slope'], tol, net_theta_rad, math.pi, lamda_c, p['rad_s'])
+        lamda_c = climb_vel / (rad_s * radius)
+        induced_vel = lamda_prandtl(climb_vel, blades, r_arr, radius, sigma, lift_slope, tol, net_theta_rad, math.pi, lamda_c, rad_s)
         T, Pressure, rho = isa(height_m)
-        cl, cd, alpha, U_p, U_t, Phi = aerod(p['rad_s'], self.r_arr, climb_vel, induced_vel, net_theta_rad, p['lift_slope'], T)
+        cl, cd, alpha, U_p, U_t, Phi = aerod(rad_s, r_arr, climb_vel, induced_vel, net_theta_rad, lift_slope, T)
         
         # Check for stall condition
         max_alpha_deg = np.max(rad_to_deg(alpha))
         if max_alpha_deg > 12:
             print(f"Stalling at {collective_pitch:.2f} deg, alpha = {max_alpha_deg:.2f} deg.")
         
-        Thrust, Power, Torque = TPQ(rho, U_p, U_t, self.chord_array, cl, cd, Phi, p['Blade_radius'], p['Div'], p['blades'], self.r_arr, p['rad_s'])
+        Thrust, Power, Torque = TPQ(rho, U_p, U_t, chord_array, cl, cd, Phi, radius, div, blades, r_arr, rad_s)
         
-        C_t = (2 * Thrust) / (rho * math.pi * (p['rad_s']**2) * (p['Blade_radius']**4))
-        C_q = (2 * Torque) / (rho * math.pi * (p['rad_s']**2) * (p['Blade_radius']**5))
+        C_t = (2 * Thrust) / (rho * math.pi * (rad_s**2) * (radius**4))
+        C_q = (2 * Torque) / (rho * math.pi * (rad_s**2) * (radius**5))
         
-        return C_t, C_q, Thrust, Power,Phi
+        return C_t, C_q, Thrust, Power,Phi,net_theta_deg
 
     def _newton_solver(self, target_func, initial_guess: float, *args) -> tuple:
         tol = 1e-3
@@ -100,7 +135,7 @@ class Helicopterstate_simulator:
             return thrust - self.current_state['W0']
             
         pitch, _ = self._newton_solver(thrust_error_func, 8, height_m)
-        _, _, thrust, power,_ = self._calculate_blade_properties(pitch, height_m, climb_vel=0)
+        _, _, thrust, power,_,_ = self._calculate_blade_properties(pitch, height_m, climb_vel=0)
         return pitch, thrust, power
 
     def calculate_next_state(self, dt: float = 0.1, next_height: float = 0.0):
@@ -122,18 +157,18 @@ class Helicopterstate_simulator:
         
         # Find the required pitch and power for the climb
         def climb_error_func(pitch: float, h: float, v_climb: float):
-            thrust = self._calculate_blade_properties(pitch, h, v_climb)[2]
+            thrust = self._calculate_blade_properties(pitch, h, v_climb, main_rotor=True)[2]
             return thrust - current_weight
 
         required_pitch, _ = self._newton_solver(climb_error_func, 8, current_height, v_z)
-        _, _, _, required_power,PHI = self._calculate_blade_properties(required_pitch, current_height, v_z)
+        _, _, _, required_power,PHI,net_theta_deg = self._calculate_blade_properties(required_pitch, current_height, v_z, main_rotor=True)
 
         # Handle power limitations
         if required_power > power_available:
             print(f"Warning: Required power ({required_power/1000:.2f} kW) exceeds available power ({power_available/1000:.2f} kW). Adjusting climb rate.")
             
             def new_climb_error_func(v_climb: float, h: float):
-                _, _, _, power,PHI= self._calculate_blade_properties(required_pitch, h, v_climb)
+                _, _, _, power,PHI,_= self._calculate_blade_properties(required_pitch, h, v_climb, main_rotor=True)
                 return power - power_available
             
             v_z_new, _ = self._newton_solver(new_climb_error_func, v_z, current_height)
@@ -160,68 +195,7 @@ class Helicopterstate_simulator:
         self.current_state['time_step_duration'] = dt
         self.current_state['power_available'] = power_available
         self.current_state['pitch'] = required_pitch
-        self.current_state['max_alpha'] = np.max(required_pitch - rad_to_deg(PHI))
+        self.current_state['max_alpha'] = np.max(net_theta_deg)
     def reset_state(self, W0, altitude):
         self.current_state["W0"] = W0, 
         self.current_state['curr_height'] = altitude
-
-
-
-    # g = 9.81  # m/s^2
-
-    # # Design parameters (from your original code)
-    # W0_guess = 4000
-    # W_pl_target = 0
-    # crew = 15
-    # Rg_target = 439
-    # rho_f = 0.8
-    # V_max = 200
-    # Nb = 2
-    # Nb_tr = 2
-    # design = HelicopterDesigner(W0=W0_guess, V_max=V_max, Nb=Nb, Nb_tr=Nb_tr, W_pl=W_pl_target, crew=crew, Rg=Rg_target, rho_f=rho_f)
-    # design.iterative_gross_weight_calculator(W0_guess)
-    # final_design_parameters = design.run_calculations()
-
-    # # Prepare a single, cohesive dictionary for the simulator
-    # simulator_params = final_design_parameters
-    # simulator_params['Main Rotor']['blades'] = Nb
-    # simulator_params['Main Rotor']['Chord_root'] = final_design_parameters['Main Rotor']['Main Rotor Chord (m)']
-    # simulator_params['Main Rotor']['Chord_tip'] = final_design_parameters['Main Rotor']['Main Rotor Chord (m)']
-    # simulator_params['Main Rotor']['Blade_radius'] = final_design_parameters['Main Rotor']['Main Rotor Diameter (m)'] * 1.0 / 2
-    # simulator_params['Main Rotor']['Root_cutoff'] = (final_design_parameters['Main Rotor']['Main Rotor Diameter (m)'] * 1.0 / 2) * 0.05
-    # simulator_params['Main Rotor']['rpm'] = rad_s_to_rpm(final_design_parameters['Main Rotor']["Main Rotor Angular Velocity (rad/s)"])
-    # simulator_params['Main Rotor']['rad_s'] = final_design_parameters['Main Rotor']["Main Rotor Angular Velocity (rad/s)"]
-    # simulator_params['Main Rotor']['W0'] = design.W0 * g
-    # simulator_params['Weights']['W0'] = design.W0 * g
-    # simulator_params['Weights']['Wf'] = final_design_parameters['Weights']["fuel weight"]
-    # simulator_params['Main Rotor']['curr_height'] = 0
-    # simulator_params['Main Rotor']['V_c'] = 0
-    # simulator_params['Main Rotor']['Div'] = 1000
-    # simulator_params['Main Rotor']['Twist_root'] = 0
-    # simulator_params['Main Rotor']['Twist_tip'] = 0
-    # simulator_params['Main Rotor']['lift_slope'] = 5.75
-
-    # # --- Simulation ---
-    # heli_sim = Helicopterstate_simulator(design_parameters=simulator_params)
-
-    # # Example 1: Calculate pitch and power for hover
-    # pitch_hover, thrust_hover, power_hover = heli_sim.find_hover_pitch(height_m=0)
-    # print(f"Required collective pitch for hover at 0m: {pitch_hover:.2f} deg")
-    # print(f"Required power for hover at 0m: {power_hover/1000:.2f} kW")
-
-    # # Example 2: Simulate a vertical climb
-    # print("\nSimulating a climb from 0m to 100m in 100 seconds.")
-    # dt = 1.0
-    # total_time = 100
-    # current_time = 0
-
-    # while current_time < total_time:
-    #     next_height = (current_time + dt) / total_time * 100  # Simple linear climb profile
-    #     heli_sim.calculate_next_state(dt=dt, next_height=next_height)
-    #     print(f"Time: {current_time+dt:.1f}s, Height: {heli_sim.current_state['curr_height']:.2f}m, Pitch: {heli_sim.current_state['required_pitch']:.2f} deg, Power: {heli_sim.current_state['required_power']/1000:.2f} kW")
-    #     current_time += dt
-
-    # print("\nFinal state after simulation:")
-    # print(f"Final height: {heli_sim.current_state['curr_height']:.2f} m")
-    # print(f"Final gross weight: {heli_sim.current_state['W0']:.2f} N")
-    # print(f"Remaining fuel weight: {heli_sim.current_state['Wf']:.2f} kg")

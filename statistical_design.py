@@ -27,7 +27,7 @@ class HelicopterDesigner:
         self.Nb = Nb
         self.Nb_tr = Nb_tr
         self.W_pl = W_pl
-        self.Wc = crew * 110
+        self.Wc = crew * 70
         self.Rg = Rg
         self.rho_f = rho_f
 
@@ -48,11 +48,12 @@ class HelicopterDesigner:
             print("main rotor tip velocity is very high")
         
         self.results['Main Rotor'] = {
-            "Disc Loading (kg/m^2)": DL,
-            "Main Rotor Diameter (m)": D,
+            "Disc Loading (kg/m^2)": float(DL),
+            "Main Rotor Diameter (m)": float(D),
             "Main Rotor Chord (m)": c,
             "Main Rotor Tip Speed (m/s)": V_tip,
             "Main Rotor Angular Velocity (rad/s)": ang_vel,
+            "Number of main rotor blades": self.Nb
         }
         
     def calculate_tail_rotor_parameters(self):
@@ -71,6 +72,7 @@ class HelicopterDesigner:
             "Tail Rotor Tip Speed (m/s)": V_tip_tail,
             "Tail Rotor Angular Velocity (rad/s)": ang_vel_tail,
             "Tail Rotor Chord (m)": c_tr,
+            "Tail rotor blades" : self.Nb_tr
         }
 
     def calculate_airframe_dimensions(self):
@@ -90,7 +92,6 @@ class HelicopterDesigner:
         
         # Vertical tail
         a_vt = 0.5914 * (D**0.995)
-        S_vt = 0.5914 * (D**0.995)
         c_vt = 0.1605 * (D_tr**1.745) if D_tr < 3.5 else 0.297 * (D_tr**1.06)
 
         self.results['Airframe and Tail'] = {
@@ -101,7 +102,6 @@ class HelicopterDesigner:
             "Horizontal Tail Arm (m)": a_ht,
             "Horizontal Tail Surface Area (m^2)": S_ht,
             "Vertical Tail Arm (m)": a_vt,
-            "Vertical Tail Surface Area (m^2)": S_vt,
             "Average Vertical Tail Chord (m)": c_vt,
         }
 
@@ -188,7 +188,7 @@ class HelicopterDesigner:
             self.results['Engine Suggestion'] = suggestion
         else:
             # Find the engine with the highest power from the suitable list
-            best_engine = suitable_engines.loc[suitable_engines['SFC'].idxmax()]
+            best_engine = suitable_engines.loc[suitable_engines['SFC'].idxmin()]
             
             # Save only the single best engine as a dictionary
             self.results['Engine Suggestion'] = best_engine.to_dict()
@@ -201,6 +201,22 @@ class HelicopterDesigner:
         self.calculate_performance()
         self.calculate_power()
         self.suggest_engine()
+        print("\n--- Helicopter Design Summary ---")
+        result = self.results
+
+        for section, params in result.items():
+            print(f"\n--- {section} ---")
+            if result[section] == "No suitable engine found in the specified power range." or result[section] == "Power data unavailable." or result[section] == "Engine database unavailable.":
+                print(result[section])
+                print("using dummpy power values to")
+                result[section] = {'Power (kw)' : 1400, 'SFC': 0.5}
+                continue
+            for key, value in params.items():
+                if isinstance(value, float):
+                    print(f"{key}: {value:.2f}")
+                else:
+                    print(f"{key}: {value}")
+        
         return self.results
     
     def iterative_gross_weight_calculator(self, W0_guess, tolerance=1e-6, max_iterations=1000):
@@ -233,13 +249,13 @@ def main():
     Main function to run the full helicopter design process, including
     the iterative gross weight calculation.
     """
-    W0_guess = 4000 
+    W0_guess = 4000
     W_pl_target = 0
     crew = 15
     Rg_target = 439
     rho_f = 0.8
     V_max = 200
-    Nb = 2
+    Nb = 4
     Nb_tr = 2 
 
     print("\n--- Final Helicopter Design Parameters ---")
