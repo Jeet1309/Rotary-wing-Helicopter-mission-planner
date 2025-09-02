@@ -2,7 +2,7 @@
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-from helper import *
+from performance_tool import *
 from calculating_state import Helicopterstate_simulator   # your simulator class
 from statistical_design import HelicopterDesigner
 import csv

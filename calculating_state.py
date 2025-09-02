@@ -1,6 +1,6 @@
 import numpy as np
 import math
-from helper import rad_s_to_rpm, rpm_to_rad_s, deg_to_rad, rad_to_deg, fuel_flow, available_engine_power, chord_variation, twist_variation, isa, aerod, TPQ, lamda_prandtl
+from performance_tool import rad_s_to_rpm, rpm_to_rad_s, deg_to_rad, rad_to_deg, fuel_flow, available_engine_power, chord_variation, twist_variation, isa, aerod, TPQ, lamda_prandtl
 from statistical_design import HelicopterDesigner
 
 class Helicopterstate_simulator:

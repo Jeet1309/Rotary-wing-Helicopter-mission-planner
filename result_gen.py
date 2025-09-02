@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import csv
 from statistical_design import HelicopterDesigner
 from calculating_state import Helicopterstate_simulator
-from helper import isa, deg_to_rad, chord_variation, twist_variation, rad_to_deg, lamda_prandtl, aerod, TPQ, available_engine_power, fuel_flow, degC_to_kel
+from performance_tool import isa, deg_to_rad, chord_variation, twist_variation, rad_to_deg, lamda_prandtl, aerod, TPQ, available_engine_power, fuel_flow, degC_to_kel
 from Mission import Mission_planner, visualize_mission
 import math
 import pandas as pd
