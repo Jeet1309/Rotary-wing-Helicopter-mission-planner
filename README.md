@@ -1,145 +1,111 @@
+# Helicopter Performance and Mission Simulation
 
+## 📝 Introduction
 
-# Helicopter Design and Mission Simulator
+This project is a comprehensive suite of Python scripts for the preliminary design and performance analysis of a helicopter. It provides a robust framework for:
 
-A comprehensive Python tool for the conceptual design, performance analysis, and mission simulation of helicopters.
-
------
-
-## 🚁 Table of Contents
-
-  - Introduction
-  - Core Concepts & Theory
-      - Phase 1: Statistical Design
-      - Phase 2: Physics-Based Simulation (BEMT)
-  - Project Workflow
-  - File Structure
-  - Installation and Usage
-      - Prerequisites
-      - Installation
-      - Running the Simulator
-  - Understanding the Output
-  - Limitations & Future Work
+1.  **Statistical Design**: An iterative process to determine the optimal helicopter gross weight and select a suitable engine based on mission requirements.
+2.  **Physics-Based Simulation**: A step-by-step simulation of a user-defined mission profile, calculating key performance metrics like power, fuel consumption, and altitude.
+3.  **Performance Analysis**: Generation of detailed plots and data logs to visualize and analyze the mission results.
 
 -----
 
-## 📖 Introduction
+## ⚙️ Core Concepts & Theory
 
-This project offers a comprehensive workflow for helicopter design, spanning from high-level requirements to detailed mission performance analysis. It's designed for engineers, students, and enthusiasts who want to explore how initial parameters (like payload and range) influence a helicopter's final design and its flight capabilities.
+The project's calculations are grounded in fundamental aerospace engineering principles:
 
-The tool bridges the gap between purely statistical sizing and complex aerodynamic analysis by integrating two key phases:
+### **Phase 1: Statistical Design**
 
-1.  **Initial Sizing:** It uses empirical formulas derived from a wide range of existing helicopters to generate a realistic baseline design quickly.
-2.  **Performance Simulation:** It uses a physics-based model, **Blade Element Momentum Theory (BEMT)**, to accurately simulate the rotor's performance during vertical flight operations like hovering and climbing.
+The core challenge in helicopter design is the interdependency of gross weight and fuel weight. The program addresses this with an **iterative convergence method**. It starts with an initial gross weight guess and calculates the fuel required for a target mission. This new fuel weight is then used to refine the gross weight, and the process repeats until the gross weight value stabilizes. This ensures a feasible design before the mission simulation begins.
 
------
+### **Phase 2: Physics-Based Simulation**
 
-## 🔬 Core Concepts & Theory
+The simulation engine is built upon **Blade Element Momentum Theory (BEMT)**. This method models the rotor blade as a series of small, independent elements. By calculating the aerodynamic forces (thrust and torque) on each element and summing them up, the program can accurately determine the overall rotor performance. The simulation also incorporates:
 
-The project's methodology is split into two distinct but connected phases.
-
-### Phase 1: Statistical Design
-
-In the early stages of design, it's impractical to run complex simulations for every variable. Instead, we can leverage data from decades of helicopter development. This phase, primarily handled by `statistical_design.py`, uses **empirical equations** to estimate the size, weight, and power requirements of the helicopter.
-
-  - **Iterative Weight Calculation:** The process starts with a guess for the Maximum Take-Off Weight (MTOW). The code then calculates the weight of the airframe, fuel, and systems based on this guess. These calculated weights are summed with the required payload and crew weight to get a new MTOW. This process repeats until the guessed MTOW and the calculated MTOW converge, ensuring the design is internally consistent.
-  - **Component Sizing:** Once the final MTOW is known, the script sizes key components like the main and tail rotors (diameter, chord), fuselage, and tail surfaces using formulas that correlate their dimensions to the helicopter's weight and class.
-
-### Phase 2: Physics-Based Simulation (BEMT)
-
-Once the helicopter's physical dimensions are set, we need a more precise way to calculate performance. This is where **Blade Element Momentum Theory (BEMT)** comes in. Handled by `calculating_state.py`, BEMT is a powerful method for analyzing rotor performance.
-
-The core idea is to break the rotor blade into many small, independent sections (blade elements). For each element, the code:
-
-1.  Calculates the local airflow velocity, which is a combination of the blade's rotation speed, the helicopter's climb velocity, and the "induced velocity" (air drawn down through the rotor).
-2.  Determines the local angle of attack (`alpha`).
-3.  Calculates the small lift and drag forces on that single element using standard aerodynamic equations.
-4.  Resolves these forces into thrust (vertical) and torque (rotational resistance) components.
-
-Finally, the forces from all elements are integrated along the blade's length to find the rotor's total **Thrust, Power, and Torque**. This method allows the simulation to accurately model the effects of blade twist, chord variation, and stall.
+  * **International Standard Atmosphere (ISA)**: Calculations are adjusted for changes in air density, pressure, and temperature with altitude.
+  * **Engine Performance Modeling**: The simulation uses a specific fuel consumption (SFC) value from the `Heli_engine_data` dataset to calculate fuel burn based on the power required at each time step.
 
 -----
 
-## ⚙️ Project Workflow
+## 🚀 Project Workflow
 
-The program follows a logical sequence from user input to final analysis:
+The project is designed with a clear, sequential workflow:
 
-1.  **User Input (`main.py`):** The user provides high-level design goals (payload, range, speed, etc.) and a desired mission profile (e.g., hover for 60s, climb to 100m).
-2.  **Statistical Design (`statistical_design.py`):**
-      - The iterative weight calculator converges on a final MTOW.
-      - All major components are sized based on the final MTOW.
-      - [cite\_start]A suitable engine is selected from `Heli_engine_data - Sheet1.csv` based on the calculated power requirements[cite: 1].
-3.  **Mission Simulation (`Mission.py`):**
-      - The `Mission_planner` initializes the `Helicopterstate_simulator` with the final design parameters.
-      - It executes the user-defined mission step-by-step (e.g., hover, climb).
-      - For each time step (`dt`), it calls the simulator to calculate the helicopter's state.
-4.  **State Calculation (`calculating_state.py`):** The simulator uses BEMT to find the required rotor pitch and power to perform the maneuver, accounting for the helicopter's current weight, altitude, and velocity. It also updates fuel consumption.
-5.  **Data Logging & Visualization (`Mission.py`, `result_gen.py`):**
-      - The results of each time step are logged.
-      - [cite\_start]At the end of the mission, plots are generated, and a detailed `mission.csv` file is saved[cite: 2].
-      - Additional performance analyses, like stall limits and endurance curves, are calculated and plotted.
+1.  **User Input (`main.py`)**: The program prompts the user for initial design parameters (e.g., gross weight, payload, number of blades) and defines the mission profile as a series of flight segments (`climb`, `cruise`, `hover`, `descend`).
+2.  **Iterative Design (`statistical_design.py`)**: The user-provided parameters are passed to the `HelicopterDesigner` class, which performs the iterative calculation to find the final, converged helicopter design parameters.
+3.  **Mission Simulation (`Mission.py`)**: The converged design is used to initialize the `Mission_planner`. This class then executes the mission step by step, calling the `Helicopterstate_simulator` (`calculating_state.py`) to update the helicopter's state at each time step.
+4.  **Result Generation (`result_gen.py`)**: After the simulation, the program creates a detailed log file and generates a series of plots that visualize the mission's key performance metrics.
+5.  **Benchmark Comparison (`performance_benchmark.py`)**: The program can optionally run performance benchmarks by comparing its calculated results against provided external data from `Paper_results.xlsx`.
 
 -----
 
 ## 📂 File Structure
 
-  - `main.py`: The main entry point. It orchestrates the entire process from user input to final output.
-  - `statistical_design.py`: The "architect." Contains the `HelicopterDesigner` class, which defines the helicopter's physical form based on statistical data.
-  - `calculating_state.py`: The "physics engine." Contains the `Helicopterstate_simulator` class, responsible for all BEMT calculations and determining the forces on the rotors.
-  - `Mission.py`: The "pilot." Contains the `Mission_planner` class that interprets the mission profile and directs the simulator to execute the flight plan.
-  - `result_gen.py`: The "flight test engineer." This module runs post-design analyses to find performance boundaries like stall angle, maximum thrust, and endurance at different weights.
-  - `helper.py`: A "toolbox" containing essential functions for unit conversions, atmospheric properties (ISA model), and core aerodynamic equations used across the project.
-  - `Heli_engine_data - Sheet1.csv`: The "engine catalog." [cite\_start]A simple database of engine specifications used for automatic selection[cite: 1].
-  - [cite\_start]`mission.csv`: An auto-generated "flight data recorder" log, containing a detailed, second-by-second record of the simulated mission[cite: 2].
+  * `main.py`: The main script that orchestrates the entire simulation, handling user input and calling other modules.
+  * `statistical_design.py`: Contains the `HelicopterDesigner` class for the iterative gross weight calculation.
+  * `Mission.py`: Defines the `Mission_planner` class, which manages the mission simulation and generates the final mission log and plots.
+  * `calculating_state.py`: The core simulation engine, providing the `Helicopterstate_simulator` class to calculate the helicopter's state at each time step.
+  * `performance_tool.py`: A library of helper functions for unit conversions, atmospheric calculations, and aerodynamic properties.
+  * `result_gen.py`: A script responsible for creating and saving the mission plots in SVG format.
+  * `import_paper_results.py`: A script to read and process external benchmark data from the `Paper_results.xlsx` file.
+  * `performance_benchmark.py`: A script that runs a performance analysis and compares the simulation results with the imported benchmark data.
+  * `Heli_engine_data - Sheet1.csv`: A dataset of various helicopter engines, including power and specific fuel consumption.
+  * `Paper_results.xlsx - [2-5]blade.csv`: External data used for validating the model's accuracy against published results for different blade configurations.
 
 -----
 
 ## 🛠️ Installation and Usage
 
-### Prerequisites
+### **Prerequisites**
 
-  - Python 3.6 or newer.
+To run the simulator, you need to have Python installed on your system along with the following libraries:
 
-### Installation
+  * `numpy`
+  * `matplotlib`
+  * `pandas`
 
-1.  Ensure all project files (`.py`, `.csv`) are in the same directory.
-2.  Install the required Python libraries by opening a terminal in the project directory and running:
-    ```bash
-    pip install numpy pandas matplotlib
-    ```
+### **Installation**
 
-### Running the Simulator
+You can install the required libraries using `pip`:
 
-1.  Navigate to the project directory in your terminal.
-2.  Execute the main script:
-    ```bash
-    python main.py
-    ```
-3.  Follow the on-screen prompts to enter your design parameters and define the mission profile. The simulation will begin automatically after you finish entering the mission steps.
+```bash
+pip install numpy matplotlib pandas
+```
+
+### **Running the Simulator**
+
+1.  Place all the project files in the same directory.
+2.  Open a terminal or command prompt.
+3.  Navigate to the project directory.
+4.  Run the main script:
+
+<!-- end list -->
+
+```bash
+python main.py
+```
+
+The program will then guide you through providing the necessary design parameters and defining your mission profile.
+
+### **Understanding the Output**
+
+Upon completion, the program generates two main types of output:
+
+1.  **`mission.csv`**: A CSV file containing a detailed log of the simulation. Each row represents a time step and includes data such as time, altitude, required power, fuel burned, and current weight.
+2.  **SVG Plots**: Several SVG image files are generated, including a combined mission profile plot and individual plots for altitude, power, fuel, and weight over time. These provide a clear visual representation of the helicopter's performance throughout the mission.
 
 -----
 
-## 📊 Understanding the Output
+## 🚧 Limitations & Future Work
 
-After the simulation is complete, you will receive the following outputs:
+### **Current Limitations**
 
-  - **Console Output:** The terminal will display a summary of the final helicopter design, followed by real-time status updates as the mission progresses.
-  - **Performance Plots:** Several plot windows will appear, visualizing key mission data like altitude, power, pitch, and fuel remaining over time. These plots are also saved as high-quality `.svg` files in the project directory.
-  - [cite\_start]**Mission Data Log (`mission.csv`):** A detailed CSV file is generated, containing the time-series data for the entire mission[cite: 2]. This file can be opened in Excel or other data analysis tools for further inspection.
+  * The simulation is currently limited to the flight phases defined in the mission profile.
+  * The engine data is based on a fixed CSV file.
+  * The aerodynamic model is a simplified BEMT, not accounting for more complex phenomena like compressibility effects or blade stall.
 
------
+### **Future Work**
 
-## ❗ Limitations & Future Work
-
-This tool is intended for conceptual design and has several limitations:
-
-  - **Flight Model:** The simulation is currently limited to hover and vertical climb. Forward flight, which involves more complex aerodynamics (like retreating blade stall and flapping), is not implemented.
-  - **Aerodynamics:** The model uses a simplified stall model (a hard limit at a 12-degree angle of attack) and does not account for advanced effects like compressibility at high tip speeds.
-  - **Tail Rotor:** The tail rotor's primary function (countering torque) is not dynamically coupled to the main rotor's torque output in this simulation version.
-
-**Potential future enhancements could include:**
-
-  - Implementing a forward flight model.
-  - Developing a more sophisticated stall and compressibility model.
-  - Creating a graphical user interface (GUI) for easier interaction.
-  - Expanding the engine and airfoil databases.
+  * Expand the mission profile to include more complex maneuvers like autorotation or turns.
+  * Create a dynamic engine database with more detailed performance maps.
+  * Integrate a more advanced aerodynamic model for greater accuracy across a wider flight envelope.
